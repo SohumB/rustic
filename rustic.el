@@ -35,11 +35,6 @@
 
 (require 'dash)
 
-(setq rust-load-optional-libraries nil)
-(setq rust-before-save-hook #'rustic-before-save-hook)
-(setq rust-after-save-hook #'rustic-after-save-hook)
-(require 'rust-mode)
-
 ;;; Customization
 
 (defgroup rustic nil
@@ -118,6 +113,13 @@ this variable."
   :type 'function
   :group 'rustic)
 
+(defcustom rustic-treesitter-derive nil
+  "Whether rustic should derive from the new treesitter mode `rust-ts-mode'
+instead of `rust-mode'. This option requires emacs29+."
+  :version "29.1"
+  :type 'boolean
+  :group 'rustic)
+
 ;;; Mode
 
 (defvar rustic-mode-map
@@ -152,39 +154,12 @@ this variable."
     map)
   "Keymap for `rustic-mode'.")
 
-;;;###autoload
-(define-derived-mode rustic-mode rust-mode "Rustic"
-  "Major mode for Rust code.
-
-\\{rustic-mode-map}"
-  :group 'rustic
-
-  (when (bound-and-true-p rustic-cargo-auto-add-missing-dependencies)
-   (add-hook 'lsp-after-diagnostics-hook 'rustic-cargo-add-missing-dependencies-hook nil t)))
+(if (and (version<= "29.1" emacs-version) rustic-treesitter-derive)
+    (require 'rustic-ts-mode)
+  (require 'rustic-rust-mode))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.rs\\'" . rustic-mode))
-
-;; remove rust-mode from `auto-mode-alist'
-(let ((mode '("\\.rs\\'" . rust-mode)))
-  (when (member mode auto-mode-alist)
-    (setq auto-mode-alist (remove mode auto-mode-alist))))
-
-;;; envrc support
-
-;; To support envrc, it is necessary to wrap any buffer creation code
-;; with inheritenv.  Rather than depend on that package, we conditionally
-;; wrap if it is installed.  Users of envrc ought to ensure the inheritenv
-;; package is available before loading rustic.
-
-(defmacro rustic--inheritenv (&rest body)
-  "Wrap BODY so that the environment it sees will match the current value.
-This is useful if BODY creates a temp buffer, because that will
-not inherit any buffer-local values of variables `exec-path' and
-`process-environment'."
-  `(if (featurep 'inheritenv)
-       (inheritenv-apply (lambda () ,@body))
-     ,@body))
 
 ;;; _
 
